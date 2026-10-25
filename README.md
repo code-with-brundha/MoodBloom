@@ -37,7 +37,7 @@ MoodBloom is a personal mood and lifestyle web application designed to help you 
 1. Clone the repository:
 
    ```bash
-   git clone https://github.com/YOUR-USERNAME/MoodBloom.git
+   git clone https://github.com/code-with-brundha/MoodBloom.git
    ```
 
 2. Navigate to the project directory:
