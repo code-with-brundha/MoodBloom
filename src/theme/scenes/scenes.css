@@ -1,0 +1,44 @@
+/* Scenery animations. Everything here is decorative and gentle.
+   Motion is switched off for thumbnails and for people who prefer reduced motion. */
+
+.scene-svg { display: block; }
+
+.scene-svg .mb-drift   { animation: mb-drift var(--dur, 60s) ease-in-out var(--delay, 0s) infinite alternate; }
+.scene-svg .mb-bob     { animation: mb-bob var(--dur, 7s) ease-in-out var(--delay, 0s) infinite; }
+.scene-svg .mb-twinkle { transform-box: fill-box; transform-origin: center; animation: mb-twinkle var(--dur, 3.5s) ease-in-out var(--delay, 0s) infinite; }
+.scene-svg .mb-glow    { animation: mb-glow var(--dur, 5s) ease-in-out var(--delay, 0s) infinite; }
+.scene-svg .mb-pulse   { transform-box: fill-box; transform-origin: 50% 0%; animation: mb-pulse var(--dur, 4s) ease-in-out var(--delay, 0s) infinite; }
+.scene-svg .mb-sway    { transform-box: fill-box; transform-origin: 50% 0%; animation: mb-sway var(--dur, 6s) ease-in-out var(--delay, 0s) infinite alternate; }
+.scene-svg .mb-swim    { animation: mb-swim var(--dur, 70s) linear var(--delay, 0s) infinite; }
+.scene-svg .mb-rise    { animation: mb-rise var(--dur, 14s) linear var(--delay, 0s) infinite; }
+.scene-svg .mb-fall    { animation: mb-fall var(--dur, 18s) linear var(--delay, 0s) infinite; }
+.scene-svg .mb-steam   { transform-box: fill-box; transform-origin: 50% 100%; animation: mb-steam var(--dur, 5s) ease-out var(--delay, 0s) infinite; }
+.scene-svg .mb-flutter { animation: mb-flutter var(--dur, 16s) ease-in-out var(--delay, 0s) infinite; }
+.scene-svg .mb-spin    { transform-box: fill-box; transform-origin: center; animation: mb-spin var(--dur, 160s) linear infinite; }
+.scene-svg .mb-shoot   { animation: mb-shoot var(--dur, 16s) ease-in var(--delay, 0s) infinite; opacity: 0; }
+.scene-svg .mb-wing    { transform-box: fill-box; transform-origin: 50% 50%; animation: mb-wing .7s ease-in-out infinite alternate; }
+
+@keyframes mb-drift   { from { transform: translateX(calc(var(--amp, 40px) * -1)); } to { transform: translateX(var(--amp, 40px)); } }
+@keyframes mb-bob     { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(calc(var(--amp, 12px) * -1)); } }
+@keyframes mb-twinkle { 0%, 100% { opacity: .3; transform: scale(.7); } 50% { opacity: 1; transform: scale(1.15); } }
+@keyframes mb-glow    { 0%, 100% { opacity: .55; } 50% { opacity: 1; } }
+@keyframes mb-pulse   { 0%, 100% { transform: scale(1, 1); } 50% { transform: scale(1.07, .93); } }
+@keyframes mb-sway    { from { transform: rotate(-4deg); } to { transform: rotate(4deg); } }
+@keyframes mb-swim    { from { transform: translateX(-320px); } to { transform: translateX(1950px); } }
+@keyframes mb-rise    { 0% { transform: translateY(0); opacity: 0; } 12% { opacity: .85; } 88% { opacity: .6; } 100% { transform: translateY(var(--rise, -900px)); opacity: 0; } }
+@keyframes mb-fall    { 0% { transform: translate(0, -60px) rotate(0deg); opacity: 0; } 8% { opacity: .95; } 92% { opacity: .85; } 100% { transform: translate(var(--drift, 140px), 980px) rotate(300deg); opacity: 0; } }
+@keyframes mb-steam   { 0% { transform: translateY(0) scale(.8); opacity: 0; } 25% { opacity: .55; } 100% { transform: translateY(-46px) scale(1.5); opacity: 0; } }
+@keyframes mb-flutter { 0%, 100% { transform: translate(0, 0); } 25% { transform: translate(70px, -34px); } 50% { transform: translate(140px, 8px); } 75% { transform: translate(60px, 40px); } }
+@keyframes mb-spin    { to { transform: rotate(360deg); } }
+@keyframes mb-shoot   { 0% { opacity: 0; transform: translate(0, 0); } 3% { opacity: 1; } 9% { opacity: 0; transform: translate(-460px, 260px); } 100% { opacity: 0; transform: translate(-460px, 260px); } }
+@keyframes mb-wing    { from { transform: scaleX(1); } to { transform: scaleX(.35); } }
+
+/* Soft cross-fade when the theme changes. */
+.mb-scene-in { animation: mb-scene-in .7s ease-out both; }
+@keyframes mb-scene-in { from { opacity: 0; } to { opacity: 1; } }
+
+/* Thumbnails and the live preview stay still; reduced-motion users get a still scene too. */
+.scene-svg[data-static] *, .scene-svg[data-static] { animation: none !important; }
+@media (prefers-reduced-motion: reduce) {
+  .scene-svg *, .scene-svg, .mb-scene-in { animation: none !important; }
+}
