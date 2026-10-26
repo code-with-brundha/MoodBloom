@@ -14,6 +14,10 @@ MoodBloom is a personal mood and lifestyle web application designed to help you 
 - ⚙️ **Settings & Profile** — Manage your profile and app preferences.
 - 🔐 **Authentication** — User authentication powered by Supabase.
 
+
+## Live On Render: https://moodbloom-q62p.onrender.com
+
+
 ## 🛠️ Tech Stack
 
 | Technology | Purpose |
