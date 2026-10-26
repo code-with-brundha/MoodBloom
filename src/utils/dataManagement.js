@@ -37,12 +37,7 @@ export const CATEGORIES = [
 ];
 export const categoryByKey = Object.fromEntries(CATEGORIES.map((c) => [c.key, c]));
 
-/** Features whose data is only sample data in memory right now: nothing is saved, so nothing can be managed. */
-export const NOT_STORED = [
-  { key: 'journal', label: 'Journal entries' },
-  { key: 'mood', label: 'Mood records' },
-  { key: 'todo', label: 'Daily to-do tasks' },
-];
+
 
 const NORMALIZERS = { goals: normalizeGoal, planner: normalizeEvent, bucket: normalizeItem };
 const SINGLE_SANITIZERS = {

@@ -1,4 +1,6 @@
 import { useEffect, useState } from 'react';
+import { useAuth } from '../../auth/useAuth.js';
+import { loadCloudSetting, saveCloudSetting } from '../../utils/cloudSettings.js';
 import Button from '../Button.jsx';
 import FormField from '../FormField.jsx';
 import SettingsIcon from './SettingsIcon.jsx';
@@ -26,7 +28,7 @@ import {
   validateReminders,
 } from '../../utils/reminders.js';
 
-const SAVED_MESSAGE = 'Reminder preferences saved. Notifications will be available in a future update.';
+const SAVED_MESSAGE = 'Reminder preferences saved. This stores your schedule; it does not send background notifications yet.';
 
 const statusText = (type, r) => (r.enabled ? `On · ${describeSchedule(type, r)}` : 'Off · your settings are kept');
 
@@ -57,12 +59,32 @@ function plannerSummary(events, today) {
 const focusId = { time: (t) => `${t}-time`, days: (t) => `${t}-days-first`, leadDays: () => 'goals-lead', leadMinutes: () => 'planner-lead' };
 
 export default function RemindersSection() {
+  const { user } = useAuth();
+
   // Demo storage: reminder preferences live in this browser's localStorage only (not in the cloud).
   const [saved, setSaved] = useState(loadReminders);
   const [draft, setDraft] = useState(saved);
   const [errors, setErrors] = useState({});
   const [status, setStatus] = useState(null); // { type: 'success' | 'error' | 'info', text }
   const [confirmingReset, setConfirmingReset] = useState(false);
+  const [cloudLoading, setCloudLoading] = useState(false);
+  useEffect(() => {
+    let active = true;
+    if (!user?.id) return () => { active = false; };
+    setCloudLoading(true);
+    loadCloudSetting(user.id, 'reminder_preferences').then((result) => {
+      if (!active) return;
+      if (result.ok && result.value && typeof result.value === 'object') {
+        const cloud = sanitizeReminders({ ...defaultReminders(), ...result.value });
+        saveReminders(cloud);
+        setSaved(cloud);
+        setDraft(cloud);
+      } else if (!result.ok && !result.skipped) {
+        setStatus({ type: 'error', text: 'Could not load account reminders. Apply the settings migration and check database policies.' });
+      }
+    }).finally(() => { if (active) setCloudLoading(false); });
+    return () => { active = false; };
+  }, [user?.id]);
 
   // Read-only look at related features, so the page can say what exists today.
   const today = toDateInputValue();
@@ -98,7 +120,7 @@ export default function RemindersSection() {
     setStatus(null);
   };
 
-  const handleSave = (event) => {
+  const handleSave = async (event) => {
     event.preventDefault();
     const found = validateReminders(draft);
     setErrors(found);
@@ -113,15 +135,19 @@ export default function RemindersSection() {
 
     const clean = sanitizeReminders(draft);
     if (!saveReminders(clean).ok) {
-      setStatus({
-        type: 'error',
-        text: "We couldn't save to this browser (storage may be full or blocked), so your changes will be lost when you leave.",
-      });
+      setStatus({ type: 'error', text: "We couldn't save to this browser (storage may be full or blocked)." });
       return;
+    }
+    if (user?.id) {
+      const cloudResult = await saveCloudSetting(user.id, 'reminder_preferences', clean);
+      if (!cloudResult.ok) {
+        setStatus({ type: 'error', text: 'Saved in this browser, but account sync failed. Apply the settings migration and check database policies.' });
+        return;
+      }
     }
     setSaved(clean);
     setDraft(clean);
-    setStatus({ type: 'success', text: SAVED_MESSAGE });
+    setStatus({ type: 'success', text: user?.id ? 'Reminder preferences synced to your account. Background notifications are not enabled yet.' : SAVED_MESSAGE });
   };
 
   const handleDiscard = () => {
@@ -130,18 +156,23 @@ export default function RemindersSection() {
     setStatus({ type: 'info', text: 'Changes discarded.' });
   };
 
-  const handleReset = () => {
+  const handleReset = async () => {
     const fresh = defaultReminders();
     const { ok } = clearReminders();
+    setConfirmingReset(false);
+    if (user?.id) {
+      const cloudResult = await saveCloudSetting(user.id, 'reminder_preferences', {});
+      if (!cloudResult.ok) {
+        setStatus({ type: 'error', text: 'Reset locally, but account sync failed. Apply the settings migration and check database policies.' });
+        return;
+      }
+    }
     setSaved(fresh);
     setDraft(fresh);
     setErrors({});
-    setConfirmingReset(false);
-    setStatus(
-      ok
-        ? { type: 'success', text: 'Reminders are back to their defaults.' }
-        : { type: 'error', text: "Reset for now, but we couldn't update this browser's storage." },
-    );
+    setStatus(ok
+      ? { type: 'success', text: user?.id ? 'Reminders reset and synced to your account.' : 'Reminders are back to their defaults.' }
+      : { type: 'error', text: "Reset for now, but we couldn't update this browser's storage." });
   };
 
   const cardProps = (type) => ({
@@ -168,6 +199,7 @@ export default function RemindersSection() {
 
   return (
     <form onSubmit={handleSave} noValidate className="space-y-6">
+      {cloudLoading && <p role="status" className="text-sm text-ink-600">Loading your saved reminders…</p>}
       <NotificationNotice enabledCount={countEnabled(saved)} total={REMINDER_TYPES.length} />
 
       <ReminderCard

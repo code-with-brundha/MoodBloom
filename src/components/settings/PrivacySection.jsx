@@ -1,5 +1,7 @@
-import { useState } from 'react';
-import { loadReminders, describeSchedule } from '../../utils/reminders.js';
+import { useEffect, useState } from 'react';
+import { loadReminders } from '../../utils/reminders.js';
+import { useAuth } from '../../auth/useAuth.js';
+import { loadCloudSetting, saveCloudSetting } from '../../utils/cloudSettings.js';
 import Card from '../dashboard/Card.jsx';
 import Button from '../Button.jsx';
 import SettingsIcon from './SettingsIcon.jsx';
@@ -24,37 +26,60 @@ const VIEW_OPTIONS = [
   { value: 'calendar', label: 'Calendar' },
 ];
 
-/** Privacy & Journal Preferences. Every change is saved straight away in this browser (demo only). */
+/** Privacy & Journal Preferences: browser fallback plus per-user cloud sync when signed in. */
 export default function PrivacySection() {
   const prefs = usePreferences();
+  const { user } = useAuth();
   const moodReminder = loadReminders().mood; // read-only: mood reminders are managed in Settings → Reminders
   const [status, setStatus] = useState(null); // { type: 'success' | 'error', text }
   const [confirmingReset, setConfirmingReset] = useState(false);
+  const [cloudLoading, setCloudLoading] = useState(false);
+  useEffect(() => {
+    let active = true;
+    if (!user?.id) return () => { active = false; };
+    setCloudLoading(true);
+    loadCloudSetting(user.id, 'privacy_preferences').then((result) => {
+      if (!active) return;
+      if (result.ok && result.value && typeof result.value === 'object') { if (Object.keys(result.value).length) updatePreferences(result.value); else resetPreferences(); }
+      else if (!result.ok && !result.skipped) setStatus({ type: 'error', text: 'Could not load account preferences. Check the settings migration and database policies.' });
+    }).finally(() => { if (active) setCloudLoading(false); });
+    return () => { active = false; };
+  }, [user?.id]);
 
-  const change = (patch) => {
+  const change = async (patch) => {
     const { ok } = updatePreferences(patch);
-    setStatus(
-      ok
-        ? { type: 'success', text: 'Preference saved in this browser.' }
-        : {
-            type: 'error',
-            text: "We couldn't save to this browser (storage may be blocked), so this will reset when you leave.",
-          },
-    );
+    if (!ok) {
+      setStatus({ type: 'error', text: "We couldn't save to this browser." });
+      return;
+    }
+    if (user?.id) {
+      const result = await saveCloudSetting(user.id, 'privacy_preferences', { ...prefs, ...patch });
+      setStatus(result.ok
+        ? { type: 'success', text: 'Preference saved to your account.' }
+        : { type: 'error', text: 'Saved in this browser, but cloud sync failed. Apply the settings migration and check database policies.' });
+    } else {
+      setStatus({ type: 'success', text: 'Preference saved in this browser. Sign in to sync it to your account.' });
+    }
   };
 
-  const handleReset = () => {
+  const handleReset = async () => {
     const { ok } = resetPreferences();
     setConfirmingReset(false);
-    setStatus(
-      ok
-        ? { type: 'success', text: 'Preferences are back to their defaults.' }
-        : { type: 'error', text: "Reset for now, but we couldn't update this browser's storage." },
-    );
+    if (!ok) {
+      setStatus({ type: 'error', text: "We couldn't update this browser's storage." });
+      return;
+    }
+    if (user?.id) {
+      const result = await saveCloudSetting(user.id, 'privacy_preferences', {});
+      setStatus(result.ok
+        ? { type: 'success', text: 'Preferences reset to defaults and synced to your account.' }
+        : { type: 'error', text: 'Reset locally, but cloud sync failed. Apply the settings migration.' });
+    } else setStatus({ type: 'success', text: 'Preferences reset to defaults in this browser.' });
   };
 
   return (
     <div className="space-y-6">
+      {cloudLoading && <p role="status" className="text-sm text-ink-600">Loading your saved preferences…</p>}
       <Card className="bg-gradient-to-br from-blush-100/90 to-lilac-100/90">
         <div className="flex gap-3">
           <span aria-hidden="true" className="text-2xl">
@@ -63,9 +88,7 @@ export default function PrivacySection() {
           <div>
             <h2 className="text-xl font-semibold">About these settings</h2>
             <p className="mt-1 text-sm leading-relaxed text-ink-600">
-              These choose what MoodBloom shows on your screen. They don't encrypt or lock your journal, and anyone
-              who can use this browser can still open it. Real account protection comes later, with sign-in. Changing a
-              preference never deletes or edits your entries or moods.
+              These control what MoodBloom displays; they do not encrypt or lock journal entries. When signed in, preferences sync to your account. Changing a preference never deletes or edits your entries or moods.
             </p>
           </div>
         </div>
@@ -208,7 +231,7 @@ export default function PrivacySection() {
               <span>{status.text}</span>
             </>
           ) : (
-            'Changes are saved automatically in this browser (demo).'
+            user?.id ? 'Preferences sync to your account.' : 'Changes are saved in this browser. Sign in to sync across devices.'
           )}
         </p>
         <Button
